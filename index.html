@@ -118,6 +118,15 @@ button{
     background:#2f3136;
     padding:10px;
 }
+
+/* MESSAGE BOX */
+#siteMsg{
+    margin-top:10px;
+    padding:10px;
+    background:#202225;
+    border-radius:6px;
+    font-size:14px;
+}
 </style>
 </head>
 
@@ -133,7 +142,7 @@ button{
 <button onclick="register()">Kayıt Ol</button>
 <button onclick="login()">Giriş Yap</button>
 
-<p id="msg"></p>
+<div id="siteMsg"></div>
 </div>
 
 <!-- APP -->
@@ -141,13 +150,11 @@ button{
 
 <div class="app">
 
-<!-- SIDEBAR -->
 <div class="sidebar">
 <h3># Kanallar</h3>
 <div class="channel">genel</div>
 </div>
 
-<!-- CHAT -->
 <div class="main">
 
 <div class="topbar">
@@ -164,7 +171,6 @@ button{
 
 </div>
 
-<!-- ONLINE -->
 <div class="users">
 <h3>🟢 Online</h3>
 <div id="userList"></div>
@@ -184,12 +190,12 @@ addDoc,
 onSnapshot,
 doc,
 setDoc,
-getDocs,
+getDoc,
 query,
 orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-/* 🔥 FIREBASE CONFIG */
+/* FIREBASE */
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -204,11 +210,17 @@ const db = getFirestore(appFirebase);
 
 let currentUser = null;
 
+/* MESSAGE */
+function showMsg(text,color="white"){
+    siteMsg.innerText = text;
+    siteMsg.style.color = color;
+}
+
 /* REGISTER */
 window.register = async function(){
 
     if(!user.value || !pass.value){
-        msg.innerText = "Boş bırakma ❌";
+        showMsg("Boş bırakma ❌","red");
         return;
     }
 
@@ -216,40 +228,47 @@ window.register = async function(){
         pass: pass.value
     });
 
-    msg.innerText = "Kayıt başarılı ✔";
+    showMsg("Kayıt başarılı ✔","lightgreen");
 }
 
-/* LOGIN */
+/* LOGIN (FIXED - NO LAG) */
 window.login = async function(){
 
-    const snap = await getDocs(collection(db,"users"));
+    if(!user.value || !pass.value){
+        showMsg("Boş bırakma ❌","red");
+        return;
+    }
 
-    let ok = false;
+    const ref = doc(db,"users",user.value);
+    const snap = await getDoc(ref);
 
-    snap.forEach(d=>{
-        if(d.id===user.value && d.data().pass===pass.value){
-            ok = true;
-        }
-    });
+    if(!snap.exists()){
+        showMsg("Kullanıcı yok ❌","red");
+        return;
+    }
 
-    if(!ok){
-        msg.innerText = "Hatalı giriş ❌";
+    if(snap.data().pass !== pass.value){
+        showMsg("Hatalı şifre ❌","red");
         return;
     }
 
     currentUser = user.value;
 
-    auth.style.display = "none";
-    app.style.display = "block";
+    showMsg("Giriş başarılı ✔","lightgreen");
 
-    setOnline();
-    listenChat();
-    listenOnline();
+    setTimeout(()=>{
+        auth.style.display="none";
+        app.style.display="block";
 
-    setInterval(setOnline,5000);
+        setOnline();
+        listenChat();
+        listenOnline();
+
+        setInterval(setOnline,5000);
+    },300);
 }
 
-/* SEND MESSAGE */
+/* SEND */
 window.send = async function(){
 
     if(!msgInput.value) return;
@@ -257,14 +276,13 @@ window.send = async function(){
     await addDoc(collection(db,"messages"),{
         user: currentUser,
         text: msgInput.value,
-        room: "genel",
         time: Date.now()
     });
 
     msgInput.value="";
 }
 
-/* CHAT REALTIME */
+/* CHAT */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -276,11 +294,8 @@ function listenChat(){
         snap.forEach(d=>{
             let m=d.data();
 
-            if(m.room!=="genel") return;
-
             let div=document.createElement("div");
             div.className="msg";
-
             div.innerHTML=`<b>${m.user}:</b> ${m.text}`;
 
             chatBox.appendChild(div);
@@ -289,8 +304,11 @@ function listenChat(){
     });
 }
 
-/* ONLINE SYSTEM */
+/* ONLINE FIXED */
 function setOnline(){
+
+    if(!currentUser) return;
+
     setDoc(doc(db,"online",currentUser),{
         time: Date.now()
     });
@@ -301,21 +319,21 @@ function listenOnline(){
     onSnapshot(collection(db,"online"),(snap)=>{
 
         userList.innerHTML="";
-        let list="";
+        let list=[];
 
         snap.forEach(d=>{
             let diff = Date.now()-d.data().time;
 
-            if(diff<10000){
-                list += d.id+" ";
+            if(diff < 15000){
+                list.push(d.id);
 
                 let div=document.createElement("div");
-                div.innerText=d.id;
+                div.innerText="🟢 "+d.id;
                 userList.appendChild(div);
             }
         });
 
-        onlineUsers.innerText="Online: "+list;
+        onlineUsers.innerText="Online: "+list.join(", ");
 
     });
 }
