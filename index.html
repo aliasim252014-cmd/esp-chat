@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Room Chat</title>
+<title>Firebase Chat</title>
 
 <style>
 body{
@@ -13,24 +13,34 @@ body{
     color:white;
 }
 
-.container{max-width:900px;margin:auto;padding:20px;}
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
 
 .card{
     background:#1e1e1e;
-    padding:15px;
-    border-radius:10px;
-    margin-bottom:10px;
+    padding:20px;
+    border-radius:12px;
+    margin-bottom:15px;
 }
 
-input,button{
+input{
     width:100%;
     padding:10px;
-    margin-top:5px;
-    border-radius:8px;
+    margin:5px 0;
     border:none;
+    border-radius:8px;
+    background:#2a2a2a;
+    color:white;
 }
 
 button{
+    width:100%;
+    padding:10px;
+    border:none;
+    border-radius:8px;
     background:#2196f3;
     color:white;
     cursor:pointer;
@@ -46,18 +56,14 @@ button{
 
 .msg{
     background:#2a2a2a;
-    margin:5px 0;
     padding:8px;
+    margin:5px 0;
     border-radius:8px;
 }
 
-.row{
-    display:flex;
-    gap:5px;
-}
-
-.row button{
-    flex:1;
+.online{
+    color:#90caf9;
+    font-size:14px;
 }
 </style>
 </head>
@@ -68,38 +74,26 @@ button{
 
 <!-- LOGIN -->
 <div class="card" id="auth">
-<h2>Login</h2>
+<h2>Login / Register</h2>
 
-<input id="user" placeholder="kullanıcı">
-<input id="pass" type="password" placeholder="şifre">
+<input id="user" placeholder="Kullanıcı adı">
+<input id="pass" type="password" placeholder="Şifre">
 
-<button onclick="register()">Kayıt</button>
-<button onclick="login()">Giriş</button>
-
-<p id="msgAuth"></p>
+<button onclick="register()">Kayıt Ol</button>
+<button onclick="login()">Giriş Yap</button>
 </div>
 
 <!-- CHAT -->
 <div class="card" id="chat" style="display:none;">
 
-<h2>Room Chat</h2>
+<h2>Chat</h2>
 
 <p id="welcome"></p>
+<p class="online" id="onlineUsers"></p>
 
-<!-- ROOM -->
-<div class="row">
-<input id="roomName" placeholder="oda adı">
-<button onclick="createRoom()">Oda Oluştur</button>
-</div>
-
-<p id="currentRoom">Oda: genel</p>
-
-<div id="roomList"></div>
-
-<!-- CHAT -->
 <div class="chat" id="chatBox"></div>
 
-<input id="msg" placeholder="mesaj">
+<input id="msg" placeholder="Mesaj">
 <button onclick="send()">Gönder</button>
 
 </div>
@@ -121,100 +115,65 @@ query,
 orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
+// 🔥 FIREBASE CONFIG (BUNU DEĞİŞTİR)
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "esp-chat.firebaseapp.com",
-  projectId: "esp-chat",
-  storageBucket: "esp-chat.appspot.com",
-  messagingSenderId: "000",
-  appId: "000"
+  apiKey: "AIzaSyAvdGhWk1QOBlvPYOLt8ajTFwAGYsUx1ps",
+  authDomain: "esp-chat-9ab3c.firebaseapp.com",
+  projectId: "esp-chat-9ab3c",
+  storageBucket: "esp-chat-9ab3c.appspot.com",
+  messagingSenderId: "976211041701",
+  appId: "1:976211041701:web:2891ba81390dd08fc1dc4c"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 let currentUser = null;
-let currentRoom = "genel";
 
 /* REGISTER */
 window.register = async function(){
     await setDoc(doc(db,"users",user.value),{
         pass: pass.value
     });
-    msgAuth.innerText="Kayıt başarılı";
+    alert("Kayıt başarılı");
 }
 
 /* LOGIN */
 window.login = async function(){
 
-    const snap = await getDocs(collection(db,"users"));
+    let snap = await getDocs(collection(db,"users"));
 
-    let ok=false;
+    let ok = false;
 
     snap.forEach(d=>{
         if(d.id===user.value && d.data().pass===pass.value){
-            ok=true;
+            ok = true;
         }
     });
 
     if(!ok){
-        msgAuth.innerText="hatalı giriş";
+        alert("Hatalı giriş");
         return;
     }
 
-    currentUser=user.value;
+    currentUser = user.value;
 
     auth.style.display="none";
     chat.style.display="block";
 
-    welcome.innerText="Hoşgeldin "+currentUser;
+    welcome.innerText="Hoşgeldin " + currentUser;
 
-    loadRooms();
+    setOnline();
     listenChat();
-}
+    listenOnline();
 
-/* ROOM CREATE */
-window.createRoom = async function(){
-
-    if(!roomName.value) return;
-
-    await setDoc(doc(db,"rooms",roomName.value),{});
-
-    loadRooms();
-}
-
-/* LOAD ROOMS */
-function loadRooms(){
-
-    onSnapshot(collection(db,"rooms"),(snap)=>{
-
-        roomList.innerHTML="";
-
-        snap.forEach(d=>{
-
-            let btn=document.createElement("button");
-            btn.innerText=d.id;
-
-            btn.onclick=()=>{
-                currentRoom=d.id;
-                currentRoomText.innerText="Oda: "+currentRoom;
-                listenChat();
-            };
-
-            roomList.appendChild(btn);
-        });
-
-    });
-
+    setInterval(setOnline,5000);
 }
 
 /* SEND MESSAGE */
 window.send = async function(){
-
     if(!msg.value) return;
 
     await addDoc(collection(db,"messages"),{
-        room: currentRoom,
         user: currentUser,
         text: msg.value,
         time: Date.now()
@@ -223,7 +182,7 @@ window.send = async function(){
     msg.value="";
 }
 
-/* CHAT LISTENER */
+/* CHAT REALTIME */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -233,20 +192,40 @@ function listenChat(){
         chatBox.innerHTML="";
 
         snap.forEach(d=>{
-
             let m=d.data();
 
-            if(m.room===currentRoom){
+            let div=document.createElement("div");
+            div.className="msg";
+            div.innerHTML="<b>"+m.user+":</b> "+m.text;
 
-                let div=document.createElement("div");
-                div.className="msg";
-
-                div.innerHTML="<b>"+m.user+":</b> "+m.text;
-
-                chatBox.appendChild(div);
-            }
-
+            chatBox.appendChild(div);
         });
+
+    });
+}
+
+/* ONLINE SYSTEM */
+function setOnline(){
+    setDoc(doc(db,"online",currentUser),{
+        time:Date.now()
+    });
+}
+
+function listenOnline(){
+
+    onSnapshot(collection(db,"online"),(snap)=>{
+
+        let list="Online: ";
+
+        snap.forEach(d=>{
+            let diff = Date.now() - d.data().time;
+
+            if(diff < 10000){
+                list += d.id + " ";
+            }
+        });
+
+        onlineUsers.innerText=list;
 
     });
 
