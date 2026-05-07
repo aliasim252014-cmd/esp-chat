@@ -3,81 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 Chat</title>
+<title>Discord Style Chat</title>
 
 <style>
 body{
     margin:0;
     font-family:Arial;
-    background:#111;
+    background:#36393f;
     color:white;
 }
 
-.container{
-    max-width:900px;
-    margin:auto;
+/* LOGIN */
+#auth{
+    max-width:400px;
+    margin:80px auto;
+    background:#2f3136;
     padding:20px;
-}
-
-.card{
-    background:#1e1e1e;
-    padding:20px;
-    border-radius:12px;
-    margin-bottom:15px;
+    border-radius:10px;
 }
 
 input{
     width:100%;
     padding:10px;
     margin:5px 0;
-    border-radius:8px;
     border:none;
-    background:#2a2a2a;
+    border-radius:6px;
+    background:#202225;
     color:white;
 }
 
 button{
     width:100%;
     padding:10px;
-    background:#2196f3;
+    margin-top:10px;
     border:none;
-    border-radius:8px;
+    border-radius:6px;
+    background:#5865f2;
     color:white;
     cursor:pointer;
 }
 
-.chat{
-    height:250px;
-    overflow:auto;
-    background:#181818;
+/* APP */
+.app{
+    display:none;
+    height:100vh;
+    display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:200px;
+    background:#2f3136;
     padding:10px;
-    border-radius:10px;
+}
+
+.channel{
+    padding:8px;
+    margin:5px 0;
+    background:#40444b;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+/* CHAT */
+.main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+}
+
+.topbar{
+    background:#2f3136;
+    padding:10px;
+    display:flex;
+    justify-content:space-between;
+}
+
+.chat{
+    flex:1;
+    padding:10px;
+    overflow:auto;
 }
 
 .msg{
-    background:#2a2a2a;
+    background:#40444b;
     padding:8px;
     margin:5px 0;
-    border-radius:8px;
+    border-radius:6px;
 }
 
-.online{
-    color:#90caf9;
-    font-size:14px;
+/* INPUT */
+.inputArea{
+    display:flex;
+    padding:10px;
+    background:#2f3136;
 }
 
-.admin{
-    display:none;
+.inputArea input{
+    flex:1;
+}
+
+.inputArea button{
+    width:120px;
+    margin-left:10px;
+}
+
+/* USERS */
+.users{
+    width:180px;
+    background:#2f3136;
+    padding:10px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
-
 <!-- LOGIN -->
-<div class="card" id="auth">
+<div id="auth">
 <h2>Login / Register</h2>
 
 <input id="user" placeholder="Kullanıcı adı">
@@ -85,26 +128,40 @@ button{
 
 <button onclick="register()">Kayıt Ol</button>
 <button onclick="login()">Giriş Yap</button>
+
+<p id="msgAuth"></p>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+<h3># Kanallar</h3>
+<div class="channel">genel</div>
 </div>
 
 <!-- CHAT -->
-<div class="card" id="chat" style="display:none;">
+<div class="main">
 
-<h2>ESP32 CHAT</h2>
-
-<p id="welcome"></p>
-<p class="online" id="onlineUsers"></p>
+<div class="topbar">
+<span># genel</span>
+<span id="onlineUsers"></span>
+</div>
 
 <div class="chat" id="chatBox"></div>
 
-<input id="msg" placeholder="Mesaj">
+<div class="inputArea">
+<input id="msg" placeholder="Mesaj yaz...">
 <button onclick="send()">Gönder</button>
-
-<div class="admin" id="adminPanel">
-<h3>ADMIN</h3>
-<p>aliasim yetkili</p>
 </div>
 
+</div>
+
+<!-- USERS -->
+<div class="users">
+<h3>🟢 Online</h3>
+<div id="userList"></div>
 </div>
 
 </div>
@@ -124,33 +181,44 @@ query,
 orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// CONFIG
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
-  authDomain: "esp-chat-9ab3c.firebaseapp.com",
-  projectId: "esp-chat-9ab3c",
-  storageBucket: "esp-chat-9ab3c.appspot.com",
-  messagingSenderId: "976211041701",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_ID",
   appId: "YOUR_APP_ID"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const appFirebase = initializeApp(firebaseConfig);
+const db = getFirestore(appFirebase);
 
 let currentUser = null;
 
+/* AUTH MSG */
+function show(text){
+    msgAuth.innerText = text;
+}
+
 /* REGISTER */
 window.register = async function(){
+
+    if(!user.value || !pass.value){
+        show("Boş bırakma ❌");
+        return;
+    }
+
     await setDoc(doc(db,"users",user.value),{
         pass: pass.value
     });
-    alert("Kayıt başarılı");
+
+    show("Kayıt başarılı ✔");
 }
 
 /* LOGIN */
 window.login = async function(){
 
-    let snap = await getDocs(collection(db,"users"));
+    const snap = await getDocs(collection(db,"users"));
 
     let ok = false;
 
@@ -161,20 +229,14 @@ window.login = async function(){
     });
 
     if(!ok){
-        alert("Hatalı giriş");
+        show("Hatalı giriş ❌");
         return;
     }
 
     currentUser = user.value;
 
     auth.style.display="none";
-    chat.style.display="block";
-
-    welcome.innerText="Hoşgeldin " + currentUser;
-
-    if(currentUser==="aliasim"){
-        adminPanel.style.display="block";
-    }
+    app.style.display="flex";
 
     setOnline();
     listenChat();
@@ -183,14 +245,16 @@ window.login = async function(){
     setInterval(setOnline,5000);
 }
 
-/* SEND MESSAGE */
+/* SEND */
 window.send = async function(){
+
     if(!msg.value) return;
 
     await addDoc(collection(db,"messages"),{
-        user:currentUser,
-        text:msg.value,
-        time:Date.now()
+        user: currentUser,
+        text: msg.value,
+        room: "genel",
+        time: Date.now()
     });
 
     msg.value="";
@@ -208,9 +272,12 @@ function listenChat(){
         snap.forEach(d=>{
             let m=d.data();
 
+            if(m.room!=="genel") return;
+
             let div=document.createElement("div");
             div.className="msg";
-            div.innerHTML="<b>"+m.user+":</b> "+m.text;
+
+            div.innerHTML=`<b>${m.user}:</b> ${m.text}`;
 
             chatBox.appendChild(div);
         });
@@ -221,7 +288,7 @@ function listenChat(){
 /* ONLINE */
 function setOnline(){
     setDoc(doc(db,"online",currentUser),{
-        time:Date.now()
+        time: Date.now()
     });
 }
 
@@ -229,20 +296,24 @@ function listenOnline(){
 
     onSnapshot(collection(db,"online"),(snap)=>{
 
-        let list="Online: ";
+        userList.innerHTML="";
+        let list="";
 
         snap.forEach(d=>{
-            let diff = Date.now() - d.data().time;
+            let diff = Date.now()-d.data().time;
 
             if(diff<10000){
-                list += d.id + " ";
+                list += d.id+" ";
+
+                let div=document.createElement("div");
+                div.innerText=d.id;
+                userList.appendChild(div);
             }
         });
 
-        onlineUsers.innerText=list;
+        onlineUsers.innerText="Online: "+list;
 
     });
-
 }
 
 </script>
