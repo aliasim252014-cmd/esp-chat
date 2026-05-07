@@ -189,14 +189,14 @@ query,
 orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-/* FIREBASE CONFIG */
+/* 🔥 FIREBASE CONFIG */
 const firebaseConfig = {
-  apiKey: "AIzaSyAvdGhWk1QOBlvPYOLt8ajTFwAGYsUx1ps",
-  authDomain: "esp-chat-9ab3c.firebaseapp.com",
-  projectId: "esp-chat-9ab3c",
-  storageBucket: "esp-chat-9ab3c.appspot.com",
-  messagingSenderId: "976211041701",
-  appId: "1:976211041701:web:2891ba81390dd08fc1dc4c"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_ID",
+  appId: "YOUR_APP_ID"
 };
 
 const appFirebase = initializeApp(firebaseConfig);
@@ -249,7 +249,7 @@ window.login = async function(){
     setInterval(setOnline,5000);
 }
 
-/* SEND */
+/* SEND MESSAGE */
 window.send = async function(){
 
     if(!msgInput.value) return;
@@ -261,10 +261,10 @@ window.send = async function(){
         time: Date.now()
     });
 
-    msgInput.value = "";
+    msgInput.value="";
 }
 
-/* CHAT */
+/* CHAT REALTIME */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -289,7 +289,7 @@ function listenChat(){
     });
 }
 
-/* ONLINE */
+/* ONLINE SYSTEM */
 function setOnline(){
     setDoc(doc(db,"online",currentUser),{
         time: Date.now()
