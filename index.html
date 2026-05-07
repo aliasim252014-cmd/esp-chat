@@ -112,7 +112,7 @@ button{
     margin-left:10px;
 }
 
-/* USERS */
+/* ONLINE */
 .users{
     width:200px;
     background:#2f3136;
@@ -207,6 +207,11 @@ let currentUser = null;
 /* REGISTER */
 window.register = async function(){
 
+    if(!user.value || !pass.value){
+        msg.innerText = "Boş bırakma ❌";
+        return;
+    }
+
     await setDoc(doc(db,"users",user.value),{
         pass: pass.value
     });
@@ -234,8 +239,8 @@ window.login = async function(){
 
     currentUser = user.value;
 
-    auth.style.display="none";
-    app.style.display="block";
+    auth.style.display = "none";
+    app.style.display = "block";
 
     setOnline();
     listenChat();
@@ -244,7 +249,7 @@ window.login = async function(){
     setInterval(setOnline,5000);
 }
 
-/* SEND MESSAGE */
+/* SEND */
 window.send = async function(){
 
     if(!msgInput.value) return;
@@ -256,10 +261,10 @@ window.send = async function(){
         time: Date.now()
     });
 
-    msgInput.value="";
+    msgInput.value = "";
 }
 
-/* CHAT REALTIME */
+/* CHAT */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -284,7 +289,7 @@ function listenChat(){
     });
 }
 
-/* ONLINE SYSTEM */
+/* ONLINE */
 function setOnline(){
     setDoc(doc(db,"online",currentUser),{
         time: Date.now()
