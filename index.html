@@ -3,93 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 Chat</title>
+<title>ESP32 Online Chat</title>
 
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-}
-
 body{
-    background:#121212;
-    color:white;
+    margin:0;
     font-family:Arial;
-    padding:20px;
+    background:#111;
+    color:white;
 }
 
 .container{
     max-width:900px;
     margin:auto;
+    padding:20px;
 }
 
 .card{
     background:#1e1e1e;
     padding:20px;
-    border-radius:15px;
-    margin-bottom:20px;
+    border-radius:12px;
+    margin-bottom:15px;
 }
 
 input{
     width:100%;
-    padding:12px;
-    margin-top:10px;
-    border:none;
+    padding:10px;
+    margin:5px 0;
     border-radius:8px;
+    border:none;
     background:#2a2a2a;
     color:white;
 }
 
 button{
-    margin-top:10px;
-    padding:12px;
-    border:none;
-    border-radius:8px;
+    width:100%;
+    padding:10px;
     background:#2196f3;
     color:white;
+    border:none;
+    border-radius:8px;
+    margin-top:5px;
     cursor:pointer;
-    width:100%;
 }
 
-button:hover{
-    opacity:0.9;
-}
-
-.chat-box,
-.log-box{
+.chat{
     height:250px;
-    overflow-y:auto;
+    overflow:auto;
     background:#181818;
-    border-radius:10px;
     padding:10px;
-    margin-top:10px;
+    border-radius:10px;
 }
 
-.message{
+.msg{
+    padding:8px;
+    margin:5px 0;
     background:#2a2a2a;
-    padding:10px;
-    border-radius:10px;
-    margin-bottom:8px;
+    border-radius:8px;
 }
 
-.log{
-    color:#90caf9;
-    margin-bottom:5px;
-}
-
-.admin-panel{
+.admin{
     display:none;
-    margin-top:20px;
 }
 
-.row{
-    display:flex;
-    gap:10px;
-}
-
-.row button{
-    flex:1;
+.online{
+    font-size:14px;
+    color:#90caf9;
 }
 </style>
 </head>
@@ -98,264 +77,170 @@ button:hover{
 
 <div class="container">
 
-<div class="card" id="authCard">
+<!-- AUTH -->
+<div class="card" id="auth">
+<h2>Login / Register</h2>
 
-<h2>Kayıt Ol</h2>
-
-<input type="text" id="regUser" placeholder="Kullanıcı Adı">
-<input type="password" id="regPass" placeholder="Şifre">
+<input id="user" placeholder="Kullanıcı adı">
+<input id="pass" type="password" placeholder="Şifre">
 
 <button onclick="register()">Kayıt Ol</button>
-
-<hr style="margin:20px 0; border:1px solid #333;">
-
-<h2>Giriş Yap</h2>
-
-<input type="text" id="loginUser" placeholder="Kullanıcı Adı">
-<input type="password" id="loginPass" placeholder="Şifre">
-
 <button onclick="login()">Giriş Yap</button>
-
 </div>
 
-<div class="card" id="chatCard" style="display:none;">
+<!-- CHAT -->
+<div class="card" id="chat" style="display:none;">
 
 <h2>ESP32 CHAT</h2>
-
 <p id="welcome"></p>
 
-<div class="chat-box" id="chatBox"></div>
+<p class="online" id="onlineUsers"></p>
 
-<input type="text" id="message" placeholder="Mesaj yaz">
+<div class="chat" id="chatBox"></div>
 
-<button onclick="sendMessage()">Gönder</button>
+<input id="msg" placeholder="Mesaj">
+<button onclick="send()">Gönder</button>
 
-<div class="admin-panel" id="adminPanel">
+<!-- ADMIN -->
+<div class="admin" id="adminPanel">
+<h3>ADMIN PANEL</h3>
 
-<h3>Admin Panel</h3>
-
-<div class="row">
-<button onclick="adminAction('mute')">Mute</button>
-<button onclick="adminAction('unmute')">Unmute</button>
+<button onclick="act('ban')">Ban</button>
+<button onclick="act('unban')">Unban</button>
+<button onclick="act('mute')">Mute</button>
+<button onclick="act('unmute')">Unmute</button>
 </div>
-
-<div class="row">
-<button onclick="adminAction('ban')">Ban</button>
-<button onclick="adminAction('unban')">Unban</button>
-</div>
-
-</div>
-
-<h3 style="margin-top:20px;">Loglar</h3>
-
-<div class="log-box" id="logBox"></div>
 
 </div>
 
 </div>
 
-<script>
-
-let users = JSON.parse(localStorage.getItem("users")) || {};
-
-let currentUser = null;
-
-let bannedUsers = [];
-let mutedUsers = [];
-
-function saveUsers(){
-    localStorage.setItem("users", JSON.stringify(users));
-}
-
-function register(){
-
-    let user = document.getElementById("regUser").value.trim();
-    let pass = document.getElementById("regPass").value.trim();
-
-    if(user === "" || pass === ""){
-        alert("Boş bırakılamaz");
-        return;
-    }
-
-    if(users[user]){
-        alert("Bu kullanıcı zaten var");
-        return;
-    }
-
-    users[user] = {
-        password: pass
-    };
-
-    saveUsers();
-
-    alert("Kayıt başarılı");
-
-}
-
-function login(){
-
-    let user = document.getElementById("loginUser").value.trim();
-    let pass = document.getElementById("loginPass").value.trim();
-
-    if(!users[user]){
-        alert("Kullanıcı yok");
-        return;
-    }
-
-    if(users[user].password !== pass){
-        alert("Şifre yanlış");
-        return;
-    }
-
-    currentUser = user;
-
-    document.getElementById("authCard").style.display = "none";
-    document.getElementById("chatCard").style.display = "block";
-
-    document.getElementById("welcome").innerText =
-    "Hoş geldin " + currentUser;
-
-    addLog(currentUser + " giriş yaptı");
-
-    // SADECE aliasim ADMIN
-    if(currentUser === "aliasim"){
-        document.getElementById("adminPanel").style.display = "block";
-    }
-
-}
-
-function sendMessage(){
-
-    let msg = document.getElementById("message").value.trim();
-
-    if(msg === ""){
-        return;
-    }
-
-    if(bannedUsers.includes(currentUser)){
-        alert("Banlandın");
-        return;
-    }
-
-    if(mutedUsers.includes(currentUser)){
-        alert("Susturuldun");
-        addLog(currentUser + " muted olduğu halde yazmaya çalıştı");
-        return;
-    }
-
-    let chat = document.getElementById("chatBox");
-
-    let div = document.createElement("div");
-
-    div.className = "message";
-
-    div.innerHTML =
-    "<b>" + escapeHTML(currentUser) + ":</b> " +
-    escapeHTML(msg);
-
-    chat.appendChild(div);
-
-    chat.scrollTop = chat.scrollHeight;
-
-    addLog(currentUser + " mesaj gönderdi");
-
-    document.getElementById("message").value = "";
-
-}
-
-function adminAction(type){
-
-    if(currentUser !== "aliasim"){
-        return;
-    }
-
-    let user = prompt("Kullanıcı adı");
-
-    if(!user){
-        return;
-    }
-
-    switch(type){
-
-        case "mute":
-
-            if(!mutedUsers.includes(user)){
-                mutedUsers.push(user);
-                addLog(user + " mute edildi");
-            }
-
-        break;
-
-        case "unmute":
-
-            mutedUsers = mutedUsers.filter(u => u !== user);
-
-            addLog(user + " mute kaldırıldı");
-
-        break;
-
-        case "ban":
-
-            if(!bannedUsers.includes(user)){
-                bannedUsers.push(user);
-                addLog(user + " banlandı");
-            }
-
-        break;
-
-        case "unban":
-
-            bannedUsers = bannedUsers.filter(u => u !== user);
-
-            addLog(user + " ban kaldırıldı");
-
-        break;
-
-    }
-
-}
-
-function addLog(text){
-
-    let logBox = document.getElementById("logBox");
-
-    let div = document.createElement("div");
-
-    div.className = "log";
-
-    div.innerText = text;
-
-    logBox.appendChild(div);
-
-    logBox.scrollTop = logBox.scrollHeight;
-
-}
-
-function escapeHTML(text){
-
-    return text
-    .replace(/&/g,"&amp;")
-    .replace(/</g,"&lt;")
-    .replace(/>/g,"&gt;");
-
-}
-
-</script>
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyAvdGhWk1QOBlvPYOLt8ajTFwAGYsUx1ps",
-  authDomain: "esp-chat-9ab3c.firebaseapp.com",
-  projectId: "esp-chat-9ab3c",
-  storageBucket: "esp-chat-9ab3c.appspot.com",
-  messagingSenderId: "976211041701",
-  appId: "1:976211041701:web:2891ba81390dd08fc1dc4c"
+  apiKey: "API_KEY",
+  authDomain: "PROJECT.firebaseapp.com",
+  projectId: "PROJECT",
+  storageBucket: "PROJECT.appspot.com",
+  messagingSenderId: "ID",
+  appId: "APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+
+// USERS CACHE
+let currentUser = null;
+let banned = [];
+let muted = [];
+let online = {};
+
+// REGISTER
+function register(){
+    let u = user.value;
+    let p = pass.value;
+
+    db.collection("users").doc(u).set({
+        pass:p
+    });
+
+    alert("Kayıt başarılı");
+}
+
+// LOGIN
+function login(){
+    let u = user.value;
+    let p = pass.value;
+
+    db.collection("users").doc(u).get().then(doc=>{
+        if(!doc.exists) return alert("Kullanıcı yok");
+
+        if(doc.data().pass !== p) return alert("Şifre yanlış");
+
+        currentUser = u;
+
+        auth.style.display="none";
+        chat.style.display="block";
+
+        welcome.innerText="Hoşgeldin " + u;
+
+        if(u === "aliasim"){
+            adminPanel.style.display="block";
+        }
+
+        setOnline(u);
+        listenMessages();
+        listenOnline();
+    });
+}
+
+// ONLINE SYSTEM
+function setOnline(u){
+    db.collection("online").doc(u).set({
+        time:Date.now()
+    });
+}
+
+// CHAT SEND
+function send(){
+    let m = msg.value;
+
+    db.collection("messages").add({
+        user:currentUser,
+        text:m,
+        time:Date.now()
+    });
+
+    msg.value="";
+}
+
+// REALTIME MESSAGES
+function listenMessages(){
+    db.collection("messages")
+    .orderBy("time")
+    .onSnapshot(snap=>{
+        chatBox.innerHTML="";
+        snap.forEach(d=>{
+            let x=d.data();
+
+            let div=document.createElement("div");
+            div.className="msg";
+            div.innerHTML="<b>"+x.user+":</b> "+x.text;
+
+            chatBox.appendChild(div);
+        });
+    });
+}
+
+// ONLINE USERS
+function listenOnline(){
+    db.collection("online")
+    .onSnapshot(snap=>{
+        let list="Online: ";
+        snap.forEach(d=>{
+            list += d.id + " ";
+        });
+        onlineUsers.innerText=list;
+    });
+}
+
+// ADMIN ACTION
+function act(type){
+    let u=prompt("Kullanıcı");
+
+    if(currentUser!=="aliasim")return;
+
+    db.collection("control").add({
+        type:type,
+        user:u
+    });
+
+    alert("İşlem gönderildi");
+}
 </script>
+
 </body>
 </html>
