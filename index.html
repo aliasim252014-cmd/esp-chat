@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firebase Chat</title>
+<title>ESP32 Chat</title>
 
 <style>
 body{
@@ -30,8 +30,8 @@ input{
     width:100%;
     padding:10px;
     margin:5px 0;
-    border:none;
     border-radius:8px;
+    border:none;
     background:#2a2a2a;
     color:white;
 }
@@ -39,9 +39,9 @@ input{
 button{
     width:100%;
     padding:10px;
+    background:#2196f3;
     border:none;
     border-radius:8px;
-    background:#2196f3;
     color:white;
     cursor:pointer;
 }
@@ -65,6 +65,10 @@ button{
     color:#90caf9;
     font-size:14px;
 }
+
+.admin{
+    display:none;
+}
 </style>
 </head>
 
@@ -86,7 +90,7 @@ button{
 <!-- CHAT -->
 <div class="card" id="chat" style="display:none;">
 
-<h2>Chat</h2>
+<h2>ESP32 CHAT</h2>
 
 <p id="welcome"></p>
 <p class="online" id="onlineUsers"></p>
@@ -95,6 +99,11 @@ button{
 
 <input id="msg" placeholder="Mesaj">
 <button onclick="send()">Gönder</button>
+
+<div class="admin" id="adminPanel">
+<h3>ADMIN</h3>
+<p>aliasim yetkili</p>
+</div>
 
 </div>
 
@@ -115,15 +124,16 @@ query,
 orderBy
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// 🔥 FIREBASE CONFIG (BUNU DEĞİŞTİR)
+// CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSyAvdGhWk1QOBlvPYOLt8ajTFwAGYsUx1ps",
+  apiKey: "YOUR_API_KEY",
   authDomain: "esp-chat-9ab3c.firebaseapp.com",
   projectId: "esp-chat-9ab3c",
   storageBucket: "esp-chat-9ab3c.appspot.com",
   messagingSenderId: "976211041701",
-  appId: "1:976211041701:web:2891ba81390dd08fc1dc4c"
+  appId: "YOUR_APP_ID"
 };
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -162,6 +172,10 @@ window.login = async function(){
 
     welcome.innerText="Hoşgeldin " + currentUser;
 
+    if(currentUser==="aliasim"){
+        adminPanel.style.display="block";
+    }
+
     setOnline();
     listenChat();
     listenOnline();
@@ -174,15 +188,15 @@ window.send = async function(){
     if(!msg.value) return;
 
     await addDoc(collection(db,"messages"),{
-        user: currentUser,
-        text: msg.value,
-        time: Date.now()
+        user:currentUser,
+        text:msg.value,
+        time:Date.now()
     });
 
     msg.value="";
 }
 
-/* CHAT REALTIME */
+/* CHAT */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -204,7 +218,7 @@ function listenChat(){
     });
 }
 
-/* ONLINE SYSTEM */
+/* ONLINE */
 function setOnline(){
     setDoc(doc(db,"online",currentUser),{
         time:Date.now()
@@ -220,7 +234,7 @@ function listenOnline(){
         snap.forEach(d=>{
             let diff = Date.now() - d.data().time;
 
-            if(diff < 10000){
+            if(diff<10000){
                 list += d.id + " ";
             }
         });
