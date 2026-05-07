@@ -110,13 +110,16 @@ button{
 
 <input id="targetUser" placeholder="Kullanıcı adı">
 
-<button onclick="banUser()">🚫 Ban At</button>
+<button onclick="banUser()">🚫 Ban</button>
 <button onclick="unbanUser()">✅ Ban Aç</button>
 
-<button onclick="muteUser()">🔇 Mute At</button>
+<button onclick="muteUser()">🔇 Mute</button>
 <button onclick="unmuteUser()">🔊 Mute Aç</button>
 
 <button onclick="clearChat()">🧹 Sohbet Sıfırla</button>
+
+<h3>📜 LOG</h3>
+<div id="logBox" style="max-height:150px;overflow:auto;background:#111;padding:10px;border-radius:8px;"></div>
 </div>
 
 </div>
@@ -157,7 +160,7 @@ let isMuted = false;
 let isBanned = false;
 let isAdmin = false;
 
-/* REGISTER */
+/* ================= REGISTER ================= */
 window.register = async function(){
     await setDoc(doc(db,"users",user.value),{
         pass: pass.value
@@ -165,8 +168,12 @@ window.register = async function(){
     alert("Kayıt başarılı");
 }
 
-/* LOGIN */
+/* ================= LOGIN ================= */
 window.login = async function(){
+
+    isMuted = false;
+    isBanned = false;
+    isAdmin = false;
 
     let snap = await getDocs(collection(db,"users"));
 
@@ -185,12 +192,10 @@ window.login = async function(){
 
     currentUser = user.value;
 
-    // BAN CHECK
+    // BAN
     const banSnap = await getDocs(collection(db,"banned"));
     banSnap.forEach(d=>{
-        if(d.id === currentUser){
-            isBanned = true;
-        }
+        if(d.id === currentUser) isBanned = true;
     });
 
     if(isBanned){
@@ -198,20 +203,16 @@ window.login = async function(){
         return;
     }
 
-    // MUTE CHECK
+    // MUTE
     const muteSnap = await getDocs(collection(db,"muted"));
     muteSnap.forEach(d=>{
-        if(d.id === currentUser){
-            isMuted = true;
-        }
+        if(d.id === currentUser) isMuted = true;
     });
 
-    // ADMIN CHECK 👑
+    // ADMIN
     const adminSnap = await getDocs(collection(db,"admins"));
     adminSnap.forEach(d=>{
-        if(d.id === currentUser){
-            isAdmin = true;
-        }
+        if(d.id === currentUser) isAdmin = true;
     });
 
     auth.style.display="none";
@@ -221,6 +222,7 @@ window.login = async function(){
 
     if(isAdmin){
         adminPanel.style.display="block";
+        listenLogs();
     }
 
     setOnline();
@@ -230,18 +232,11 @@ window.login = async function(){
     setInterval(setOnline,5000);
 }
 
-/* SEND MESSAGE */
+/* ================= SEND ================= */
 window.send = async function(){
 
-    if(isBanned){
-        alert("Banlısın");
-        return;
-    }
-
-    if(isMuted){
-        alert("Mute yedin");
-        return;
-    }
+    if(isBanned) return alert("Banlısın");
+    if(isMuted) return alert("Mute yedin");
 
     if(!msg.value) return;
 
@@ -254,7 +249,7 @@ window.send = async function(){
     msg.value="";
 }
 
-/* CHAT */
+/* ================= CHAT ================= */
 function listenChat(){
 
     const q = query(collection(db,"messages"),orderBy("time"));
@@ -276,7 +271,7 @@ function listenChat(){
     });
 }
 
-/* ONLINE */
+/* ================= ONLINE ================= */
 function setOnline(){
     setDoc(doc(db,"online",currentUser),{
         time:Date.now()
@@ -291,10 +286,7 @@ function listenOnline(){
 
         snap.forEach(d=>{
             let diff = Date.now() - d.data().time;
-
-            if(diff<10000){
-                list += d.id + " ";
-            }
+            if(diff<10000) list += d.id + " ";
         });
 
         onlineUsers.innerText=list;
@@ -303,34 +295,60 @@ function listenOnline(){
 
 }
 
+/* ================= LOG ================= */
+async function addLog(action,target){
+
+    await addDoc(collection(db,"admin_logs"),{
+        action:action,
+        by:currentUser,
+        target:target,
+        time:Date.now()
+    });
+}
+
+function listenLogs(){
+
+    onSnapshot(collection(db,"admin_logs"),(snap)=>{
+
+        logBox.innerHTML="";
+
+        snap.forEach(d=>{
+            let l=d.data();
+
+            let div=document.createElement("div");
+            div.className="msg";
+            div.innerHTML="👑 "+l.by+" → "+l.action+" → "+l.target;
+
+            logBox.appendChild(div);
+        });
+
+    });
+}
+
 /* ================= ADMIN ================= */
 
 // BAN
 window.banUser = async function(){
-    await setDoc(doc(db,"banned",targetUser.value),{
-        time:Date.now()
-    });
-    alert("Ban atıldı");
+    await setDoc(doc(db,"banned",targetUser.value),{time:Date.now()});
+    await addLog("BAN",targetUser.value);
 }
 
 // UNBAN
 window.unbanUser = async function(){
     await deleteDoc(doc(db,"banned",targetUser.value));
-    alert("Ban açıldı");
+    await addLog("UNBAN",targetUser.value);
 }
 
 // MUTE
 window.muteUser = async function(){
-    await setDoc(doc(db,"muted",targetUser.value),{
-        time:Date.now()
-    });
-    alert("Mute atıldı");
+    await setDoc(doc(db,"muted",targetUser.value),{time:Date.now()});
+    await addLog("MUTE",targetUser.value);
 }
 
 // UNMUTE
 window.unmuteUser = async function(){
     await deleteDoc(doc(db,"muted",targetUser.value));
-    alert("Mute açıldı");
+    await addLog("UNMUTE",targetUser.value);
 }
 
 // CLEAR CHAT
@@ -338,15 +356,15 @@ window.clearChat = async function(){
 
     const snap = await getDocs(collection(db,"messages"));
 
-    const promises = [];
+    const promises=[];
 
-    snap.forEach((d)=>{
+    snap.forEach(d=>{
         promises.push(deleteDoc(doc(db,"messages",d.id)));
     });
 
     await Promise.all(promises);
 
-    alert("Sohbet sıfırlandı");
+    await addLog("CLEAR_CHAT","ALL");
 }
 
 </script>
