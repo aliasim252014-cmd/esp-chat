@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 Chat</title>
+<title>ESP32 Chat Pro</title>
 
 <style>
 body{
@@ -39,12 +39,12 @@ input{
 button{
     width:100%;
     padding:10px;
+    margin-top:5px;
     background:#2196f3;
     border:none;
     border-radius:8px;
     color:white;
     cursor:pointer;
-    margin-top:5px;
 }
 
 .chat{
@@ -69,7 +69,6 @@ button{
 
 .admin{
     display:none;
-    margin-top:10px;
     background:#2c2c2c;
     padding:10px;
     border-radius:10px;
@@ -111,11 +110,13 @@ button{
 
 <input id="targetUser" placeholder="Kullanıcı adı">
 
-<button onclick="banUser()">Banla</button>
-<button onclick="muteUser()">Mute</button>
-<button onclick="unmuteUser()">Mute Aç</button>
-<button onclick="clearChat()">Sohbeti Sıfırla</button>
+<button onclick="banUser()">🚫 Ban At</button>
+<button onclick="unbanUser()">✅ Ban Aç</button>
 
+<button onclick="muteUser()">🔇 Mute At</button>
+<button onclick="unmuteUser()">🔊 Mute Aç</button>
+
+<button onclick="clearChat()">🧹 Sohbeti Sıfırla</button>
 </div>
 
 </div>
@@ -138,7 +139,7 @@ orderBy,
 deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// FIREBASE CONFIG
+// FIREBASE
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "esp-chat-9ab3c.firebaseapp.com",
@@ -295,13 +296,21 @@ function listenOnline(){
 
 /* ================= ADMIN ================= */
 
+// 🚫 BAN
 window.banUser = async function(){
     await setDoc(doc(db,"banned",targetUser.value),{
         time:Date.now()
     });
-    alert("Banlandı");
+    alert("Ban atıldı");
 }
 
+// ✅ BAN AÇ
+window.unbanUser = async function(){
+    await deleteDoc(doc(db,"banned",targetUser.value));
+    alert("Ban kaldırıldı");
+}
+
+// 🔇 MUTE
 window.muteUser = async function(){
     await setDoc(doc(db,"muted",targetUser.value),{
         time:Date.now()
@@ -309,20 +318,26 @@ window.muteUser = async function(){
     alert("Mute atıldı");
 }
 
+// 🔊 MUTE AÇ
 window.unmuteUser = async function(){
     await deleteDoc(doc(db,"muted",targetUser.value));
     alert("Mute kaldırıldı");
 }
 
+// 🧹 SOHBET SİL
 window.clearChat = async function(){
 
     const snap = await getDocs(collection(db,"messages"));
 
-    snap.forEach(async (d)=>{
-        await deleteDoc(doc(db,"messages",d.id));
+    const promises = [];
+
+    snap.forEach((d)=>{
+        promises.push(deleteDoc(doc(db,"messages",d.id)));
     });
 
-    alert("Sohbet temizlendi");
+    await Promise.all(promises);
+
+    alert("Sohbet sıfırlandı");
 }
 
 </script>
