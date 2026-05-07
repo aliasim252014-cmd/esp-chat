@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 Online Chat</title>
+<title>ESP32 Modern Chat</title>
 
 <style>
 body{
@@ -56,19 +56,19 @@ button{
 }
 
 .msg{
+    background:#2a2a2a;
     padding:8px;
     margin:5px 0;
-    background:#2a2a2a;
     border-radius:8px;
-}
-
-.admin{
-    display:none;
 }
 
 .online{
     font-size:14px;
     color:#90caf9;
+}
+
+.admin{
+    display:none;
 }
 </style>
 </head>
@@ -77,7 +77,7 @@ button{
 
 <div class="container">
 
-<!-- AUTH -->
+<!-- LOGIN -->
 <div class="card" id="auth">
 <h2>Login / Register</h2>
 
@@ -92,8 +92,8 @@ button{
 <div class="card" id="chat" style="display:none;">
 
 <h2>ESP32 CHAT</h2>
-<p id="welcome"></p>
 
+<p id="welcome"></p>
 <p class="online" id="onlineUsers"></p>
 
 <div class="chat" id="chatBox"></div>
@@ -101,49 +101,44 @@ button{
 <input id="msg" placeholder="Mesaj">
 <button onclick="send()">Gönder</button>
 
-<!-- ADMIN -->
 <div class="admin" id="adminPanel">
 <h3>ADMIN PANEL</h3>
-
-<button onclick="act('ban')">Ban</button>
-<button onclick="act('unban')">Unban</button>
-<button onclick="act('mute')">Mute</button>
-<button onclick="act('unmute')">Unmute</button>
+<button onclick="alert('Ban sistemi backend gerekir')">Ban</button>
 </div>
 
 </div>
 
 </div>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- FIREBASE MODERN MODULE -->
+<script type="module">
 
-<script>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
+
+// CONFIG
 const firebaseConfig = {
-  apiKey: "API_KEY",
-  authDomain: "PROJECT.firebaseapp.com",
-  projectId: "PROJECT",
-  storageBucket: "PROJECT.appspot.com",
-  messagingSenderId: "ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyAvdGhWk1QOBlvPYOLt8ajTFwAGYsUx1ps",
+  authDomain: "esp-chat-9ab3c.firebaseapp.com",
+  projectId: "esp-chat-9ab3c",
+  storageBucket: "esp-chat-9ab3c.appspot.com",
+  messagingSenderId: "976211041701",
+  appId: "1:976211041701:web:2891ba81390dd08fc1dc4c"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+// INIT
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-// USERS CACHE
+// GLOBAL
 let currentUser = null;
-let banned = [];
-let muted = [];
-let online = {};
 
 // REGISTER
-function register(){
+window.register = async function(){
     let u = user.value;
     let p = pass.value;
 
-    db.collection("users").doc(u).set({
+    await setDoc(doc(db,"users",u),{
         pass:p
     });
 
@@ -151,58 +146,59 @@ function register(){
 }
 
 // LOGIN
-function login(){
+window.login = async function(){
     let u = user.value;
     let p = pass.value;
 
-    db.collection("users").doc(u).get().then(doc=>{
-        if(!doc.exists) return alert("Kullanıcı yok");
+    let snap = await getDocs(collection(db,"users"));
 
-        if(doc.data().pass !== p) return alert("Şifre yanlış");
+    let ok = false;
 
-        currentUser = u;
-
-        auth.style.display="none";
-        chat.style.display="block";
-
-        welcome.innerText="Hoşgeldin " + u;
-
-        if(u === "aliasim"){
-            adminPanel.style.display="block";
+    snap.forEach(d=>{
+        if(d.id === u && d.data().pass === p){
+            ok = true;
         }
-
-        setOnline(u);
-        listenMessages();
-        listenOnline();
     });
+
+    if(!ok){
+        alert("Hatalı giriş");
+        return;
+    }
+
+    currentUser = u;
+
+    auth.style.display="none";
+    chat.style.display="block";
+
+    welcome.innerText="Hoşgeldin " + u;
+
+    if(u === "aliasim"){
+        adminPanel.style.display="block";
+    }
+
+    setOnline(u);
+    listenChat();
+    listenOnline();
 }
 
-// ONLINE SYSTEM
-function setOnline(u){
-    db.collection("online").doc(u).set({
-        time:Date.now()
-    });
-}
+// SEND MESSAGE
+window.send = async function(){
+    if(!msg.value) return;
 
-// CHAT SEND
-function send(){
-    let m = msg.value;
-
-    db.collection("messages").add({
+    await addDoc(collection(db,"messages"),{
         user:currentUser,
-        text:m,
+        text:msg.value,
         time:Date.now()
     });
 
     msg.value="";
 }
 
-// REALTIME MESSAGES
-function listenMessages(){
-    db.collection("messages")
-    .orderBy("time")
-    .onSnapshot(snap=>{
+// CHAT REALTIME
+function listenChat(){
+    onSnapshot(collection(db,"messages"),(snap)=>{
         chatBox.innerHTML="";
+
         snap.forEach(d=>{
             let x=d.data();
 
@@ -215,31 +211,25 @@ function listenMessages(){
     });
 }
 
-// ONLINE USERS
+// ONLINE SYSTEM
+function setOnline(u){
+    setDoc(doc(db,"online",u),{
+        time:Date.now()
+    });
+}
+
 function listenOnline(){
-    db.collection("online")
-    .onSnapshot(snap=>{
+    onSnapshot(collection(db,"online"),(snap)=>{
         let list="Online: ";
+
         snap.forEach(d=>{
             list += d.id + " ";
         });
+
         onlineUsers.innerText=list;
     });
 }
 
-// ADMIN ACTION
-function act(type){
-    let u=prompt("Kullanıcı");
-
-    if(currentUser!=="aliasim")return;
-
-    db.collection("control").add({
-        type:type,
-        user:u
-    });
-
-    alert("İşlem gönderildi");
-}
 </script>
 
 </body>
