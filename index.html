@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Chat</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#121212;
+    color:white;
+    font-family:Arial;
+    padding:20px;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+}
+
+.card{
+    background:#1e1e1e;
+    padding:20px;
+    border-radius:15px;
+    margin-bottom:20px;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border:none;
+    border-radius:8px;
+    background:#2a2a2a;
+    color:white;
+}
+
+button{
+    margin-top:10px;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#2196f3;
+    color:white;
+    cursor:pointer;
+    width:100%;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+.chat-box,
+.log-box{
+    height:250px;
+    overflow-y:auto;
+    background:#181818;
+    border-radius:10px;
+    padding:10px;
+    margin-top:10px;
+}
+
+.message{
+    background:#2a2a2a;
+    padding:10px;
+    border-radius:10px;
+    margin-bottom:8px;
+}
+
+.log{
+    color:#90caf9;
+    margin-bottom:5px;
+}
+
+.admin-panel{
+    display:none;
+    margin-top:20px;
+}
+
+.row{
+    display:flex;
+    gap:10px;
+}
+
+.row button{
+    flex:1;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card" id="authCard">
+
+<h2>Kayıt Ol</h2>
+
+<input type="text" id="regUser" placeholder="Kullanıcı Adı">
+<input type="password" id="regPass" placeholder="Şifre">
+
+<button onclick="register()">Kayıt Ol</button>
+
+<hr style="margin:20px 0; border:1px solid #333;">
+
+<h2>Giriş Yap</h2>
+
+<input type="text" id="loginUser" placeholder="Kullanıcı Adı">
+<input type="password" id="loginPass" placeholder="Şifre">
+
+<button onclick="login()">Giriş Yap</button>
+
+</div>
+
+<div class="card" id="chatCard" style="display:none;">
+
+<h2>ESP32 CHAT</h2>
+
+<p id="welcome"></p>
+
+<div class="chat-box" id="chatBox"></div>
+
+<input type="text" id="message" placeholder="Mesaj yaz">
+
+<button onclick="sendMessage()">Gönder</button>
+
+<div class="admin-panel" id="adminPanel">
+
+<h3>Admin Panel</h3>
+
+<div class="row">
+<button onclick="adminAction('mute')">Mute</button>
+<button onclick="adminAction('unmute')">Unmute</button>
+</div>
+
+<div class="row">
+<button onclick="adminAction('ban')">Ban</button>
+<button onclick="adminAction('unban')">Unban</button>
+</div>
+
+</div>
+
+<h3 style="margin-top:20px;">Loglar</h3>
+
+<div class="log-box" id="logBox"></div>
+
+</div>
+
+</div>
+
+<script>
+
+let users = JSON.parse(localStorage.getItem("users")) || {};
+
+let currentUser = null;
+
+let bannedUsers = [];
+let mutedUsers = [];
+
+function saveUsers(){
+    localStorage.setItem("users", JSON.stringify(users));
+}
+
+function register(){
+
+    let user = document.getElementById("regUser").value.trim();
+    let pass = document.getElementById("regPass").value.trim();
+
+    if(user === "" || pass === ""){
+        alert("Boş bırakılamaz");
+        return;
+    }
+
+    if(users[user]){
+        alert("Bu kullanıcı zaten var");
+        return;
+    }
+
+    users[user] = {
+        password: pass
+    };
+
+    saveUsers();
+
+    alert("Kayıt başarılı");
+
+}
+
+function login(){
+
+    let user = document.getElementById("loginUser").value.trim();
+    let pass = document.getElementById("loginPass").value.trim();
+
+    if(!users[user]){
+        alert("Kullanıcı yok");
+        return;
+    }
+
+    if(users[user].password !== pass){
+        alert("Şifre yanlış");
+        return;
+    }
+
+    currentUser = user;
+
+    document.getElementById("authCard").style.display = "none";
+    document.getElementById("chatCard").style.display = "block";
+
+    document.getElementById("welcome").innerText =
+    "Hoş geldin " + currentUser;
+
+    addLog(currentUser + " giriş yaptı");
+
+    // SADECE aliasim ADMIN
+    if(currentUser === "aliasim"){
+        document.getElementById("adminPanel").style.display = "block";
+    }
+
+}
+
+function sendMessage(){
+
+    let msg = document.getElementById("message").value.trim();
+
+    if(msg === ""){
+        return;
+    }
+
+    if(bannedUsers.includes(currentUser)){
+        alert("Banlandın");
+        return;
+    }
+
+    if(mutedUsers.includes(currentUser)){
+        alert("Susturuldun");
+        addLog(currentUser + " muted olduğu halde yazmaya çalıştı");
+        return;
+    }
+
+    let chat = document.getElementById("chatBox");
+
+    let div = document.createElement("div");
+
+    div.className = "message";
+
+    div.innerHTML =
+    "<b>" + escapeHTML(currentUser) + ":</b> " +
+    escapeHTML(msg);
+
+    chat.appendChild(div);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    addLog(currentUser + " mesaj gönderdi");
+
+    document.getElementById("message").value = "";
+
+}
+
+function adminAction(type){
+
+    if(currentUser !== "aliasim"){
+        return;
+    }
+
+    let user = prompt("Kullanıcı adı");
+
+    if(!user){
+        return;
+    }
+
+    switch(type){
+
+        case "mute":
+
+            if(!mutedUsers.includes(user)){
+                mutedUsers.push(user);
+                addLog(user + " mute edildi");
+            }
+
+        break;
+
+        case "unmute":
+
+            mutedUsers = mutedUsers.filter(u => u !== user);
+
+            addLog(user + " mute kaldırıldı");
+
+        break;
+
+        case "ban":
+
+            if(!bannedUsers.includes(user)){
+                bannedUsers.push(user);
+                addLog(user + " banlandı");
+            }
+
+        break;
+
+        case "unban":
+
+            bannedUsers = bannedUsers.filter(u => u !== user);
+
+            addLog(user + " ban kaldırıldı");
+
+        break;
+
+    }
+
+}
+
+function addLog(text){
+
+    let logBox = document.getElementById("logBox");
+
+    let div = document.createElement("div");
+
+    div.className = "log";
+
+    div.innerText = text;
+
+    logBox.appendChild(div);
+
+    logBox.scrollTop = logBox.scrollHeight;
+
+}
+
+function escapeHTML(text){
+
+    return text
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;");
+
+}
+
+</script>
+
+</body>
+</html>
