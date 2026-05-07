@@ -106,7 +106,7 @@ button{
 
 <!-- ADMIN PANEL -->
 <div class="admin" id="adminPanel">
-<h3>ADMIN PANEL</h3>
+<h3>👑 ADMIN PANEL</h3>
 
 <input id="targetUser" placeholder="Kullanıcı adı">
 
@@ -116,7 +116,7 @@ button{
 <button onclick="muteUser()">🔇 Mute At</button>
 <button onclick="unmuteUser()">🔊 Mute Aç</button>
 
-<button onclick="clearChat()">🧹 Sohbeti Sıfırla</button>
+<button onclick="clearChat()">🧹 Sohbet Sıfırla</button>
 </div>
 
 </div>
@@ -139,7 +139,7 @@ orderBy,
 deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-// FIREBASE
+// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "esp-chat-9ab3c.firebaseapp.com",
@@ -155,6 +155,7 @@ const db = getFirestore(app);
 let currentUser = null;
 let isMuted = false;
 let isBanned = false;
+let isAdmin = false;
 
 /* REGISTER */
 window.register = async function(){
@@ -205,12 +206,20 @@ window.login = async function(){
         }
     });
 
+    // ADMIN CHECK 👑
+    const adminSnap = await getDocs(collection(db,"admins"));
+    adminSnap.forEach(d=>{
+        if(d.id === currentUser){
+            isAdmin = true;
+        }
+    });
+
     auth.style.display="none";
     chat.style.display="block";
 
     welcome.innerText="Hoşgeldin " + currentUser;
 
-    if(currentUser==="aliasim"){
+    if(isAdmin){
         adminPanel.style.display="block";
     }
 
@@ -221,7 +230,7 @@ window.login = async function(){
     setInterval(setOnline,5000);
 }
 
-/* SEND */
+/* SEND MESSAGE */
 window.send = async function(){
 
     if(isBanned){
@@ -296,7 +305,7 @@ function listenOnline(){
 
 /* ================= ADMIN ================= */
 
-// 🚫 BAN
+// BAN
 window.banUser = async function(){
     await setDoc(doc(db,"banned",targetUser.value),{
         time:Date.now()
@@ -304,13 +313,13 @@ window.banUser = async function(){
     alert("Ban atıldı");
 }
 
-// ✅ BAN AÇ
+// UNBAN
 window.unbanUser = async function(){
     await deleteDoc(doc(db,"banned",targetUser.value));
-    alert("Ban kaldırıldı");
+    alert("Ban açıldı");
 }
 
-// 🔇 MUTE
+// MUTE
 window.muteUser = async function(){
     await setDoc(doc(db,"muted",targetUser.value),{
         time:Date.now()
@@ -318,13 +327,13 @@ window.muteUser = async function(){
     alert("Mute atıldı");
 }
 
-// 🔊 MUTE AÇ
+// UNMUTE
 window.unmuteUser = async function(){
     await deleteDoc(doc(db,"muted",targetUser.value));
-    alert("Mute kaldırıldı");
+    alert("Mute açıldı");
 }
 
-// 🧹 SOHBET SİL
+// CLEAR CHAT
 window.clearChat = async function(){
 
     const snap = await getDocs(collection(db,"messages"));
